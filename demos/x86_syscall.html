@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script src="../dist/unicorn-x86.min.js"></script>
+
+    <script>
+        console.log(uc);
+
+        var stack_start = 0x80000;
+        var code_start = 0x10000;
+
+        // var code = [
+        //     0x48, 0xc7, 0xc0, 0x05, 0x00, 0x00, 0x00,  // mov rax, 5
+        //     0x48, 0x83, 0xc0, 0x07, // add rax, 7
+        // ];
+
+        var code = [
+            0x6a, 0x61,                   // push   0x61
+            0x48, 0xc7, 0xc0, 0x01, 0x00, 0x00, 0x00,    // mov    rax,0x1
+            0x48, 0xc7, 0xc7, 0x01, 0x00, 0x00, 0x00,    // mov    rdi,0x1
+            0x48, 0xc7, 0xc2, 0x01, 0x00, 0x00, 0x00,    // mov    rdx,0x1
+            0x48, 0x89, 0xe6,                // mov    rsi,rsp
+            0x0f, 0x05,                   // syscall
+            // 0xc3                   // ret
+        ]
+
+        // Initialize engine
+        var e = new uc.Unicorn(uc.ARCH_X86, uc.MODE_64);
+
+        e.hook_add(uc.HOOK_CODE, function (handle, user_data) {
+            // RIP in this case points current instruction, let's see if it's a syscall
+            var rip = handle.reg_read_i64(uc.X86_REG_RIP);
+            var mem = handle.mem_read(rip, 2);
+
+            // Syscall: 0x0f05
+            // Technically there might be a longer instruction that starts with this, but I don't care
+            if (mem[0] == 0xf && mem[1] == 0x5) {
+                console.log("syscall!")
+            }
+        }, null, 1, 0);
+
+        console.log("Engine: ", e);
+
+        var begin = code_start;
+        var until = code_start + code.length;
+        e.mem_map(code_start, 4 * 1024, uc.PROT_ALL);
+        e.mem_write(code_start, code);
+
+        // Set up stack ptr
+        var stack_len = 8 * 1024 * 1024;
+        e.mem_map(stack_start, stack_len, uc.PROT_ALL);
+        e.reg_write_i64(uc.X86_REG_RSP, stack_start + stack_len - 8);
+
+        e.emu_start(begin, until, 0, 0);
+
+        console.log("finished executing")
+
+        var irax = e.reg_read_i64(uc.X86_REG_RAX);
+        console.log("RAX value:", irax);
+    </script>
+</body>
+
+</html>
