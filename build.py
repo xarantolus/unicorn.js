@@ -36,6 +36,8 @@ EXPORTED_FUNCTIONS = [
     '_uc_free',
     '_uc_context_save',
     '_uc_context_restore',
+    '_malloc',
+    '_free',
 ]
 
 EXPORTED_CONSTANTS = [
